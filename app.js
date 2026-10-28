@@ -685,6 +685,11 @@
       setRegion("경기도");
     });
 
+    // 제목을 누르면 필터를 모두 풀고 맨 위(초기 화면)로 이동
+    const goHome = () => { $("#f-reset").click(); scrollTo({ top: 0, behavior: "smooth" }); };
+    $("#title").addEventListener("click", goHome);
+    $("#title").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goHome(); } });
+
     $("#metric").addEventListener("click", e => {
       const b = e.target.closest("button"); if (!b) return;
       state.metric = b.dataset.v;

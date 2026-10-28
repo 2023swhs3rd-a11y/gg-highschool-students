@@ -70,7 +70,7 @@ h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.3; }
 .top { padding: clamp(28px, 5vw, 56px) 0 clamp(16px, 2.5vw, 24px); }
 .eyebrow { margin: 0 0 8px; color: var(--accent); font-weight: 700; font-size: 0.85em; }
 .eyebrow.small { margin: 0 0 2px; font-size: 0.8em; }
-h1 { margin: 0; font-size: clamp(26px, 3.6vw, 40px); font-weight: 800; }
+h1 { cursor: pointer; margin: 0; font-size: clamp(26px, 3.6vw, 40px); font-weight: 800; }
 .lede { margin: 12px 0 0; font-size: 1.08em; color: var(--ink-2); max-width: 62ch; }
 .lede b { color: var(--ink); }
 .meta { margin: 6px 0 0; color: var(--muted); font-size: 0.88em; }
