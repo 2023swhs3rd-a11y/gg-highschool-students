@@ -13,7 +13,7 @@
 //  ⚙️ 프로젝트 설정 → 스크립트 속성 → 속성 추가:  SCHOOLINFO_API_KEY = (발급받은 키)
 const API_KEY = PropertiesService.getScriptProperties().getProperty("SCHOOLINFO_API_KEY");
 const LATEST_YEAR = 2026;  // 최신 공시 연도
-const SHOW_YEARS  = 3;     // 보여줄 연도 수 (전년비용으로 1년 더 조회)
+const SHOW_YEARS  = 3;     // 조회·표시 연도 수 (Open API는 최근 3년만 제공)
 
 const DB_SHEET      = "DB";
 const SUMMARY_SHEET = "00_경기도_전체_요약";
@@ -54,8 +54,8 @@ function onOpen() {
 
 function years_() {
   const all = [];
-  for (let i = 0; i <= SHOW_YEARS; i++) all.push(LATEST_YEAR - i);
-  return all;                       // 예) [2026, 2025, 2024, 2023]
+  for (let i = 0; i < SHOW_YEARS; i++) all.push(LATEST_YEAR - i);
+  return all;                       // 예) [2026, 2025, 2024]  (가장 오래된 해는 전년비 없음)
 }
 
 function collectAll() {
@@ -129,7 +129,7 @@ function collectAll() {
   db.getRange(2, DB_HEADERS.length + 2).setValue(stamp);
 
   rebuildReports();
-  ss.toast(`${rows.length.toLocaleString()}건 수집 완료 (${LATEST_YEAR - SHOW_YEARS}~${LATEST_YEAR})`, "완료", 10);
+  ss.toast(`${rows.length.toLocaleString()}건 수집 완료 (${LATEST_YEAR - SHOW_YEARS + 1}~${LATEST_YEAR})`, "완료", 10);
 }
 
 /* ─────────────────── 요약·시군 시트 ─────────────────── */
