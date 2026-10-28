@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 jobs:
   update:
@@ -24,6 +25,7 @@ jobs:
         run: python scripts/build_data.py
 
       - name: 바뀐 경우에만 커밋
+        id: commit
         run: |
           if git diff --quiet -- data/db.json; then
             echo "변경 없음"
@@ -34,3 +36,11 @@ jobs:
           git add data/db.json
           git commit -m "자료 갱신: 스프레드시트 DB 시트 → data/db.json"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # Actions가 만든 커밋은 Pages 재배포를 자동으로 일으키지 않으므로 직접 요청
+      - name: 사이트 다시 배포 요청
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"
