@@ -112,7 +112,8 @@
   /* ───────── 색 ───────── */
 
   const hex2rgb = h => { h = h.replace("#", ""); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
-  const mix = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return "rgb(" + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",") + ")"; };
+  const mix = (a, b, t) => { if (!a.startsWith("#")) a = rgb2hex(a); const A = hex2rgb(a), B = hex2rgb(b); return "rgb(" + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",") + ")"; };
+  const rgb2hex = c => "#" + c.match(/\d+/g).slice(0, 3).map(n => (+n).toString(16).padStart(2, "0")).join("");
   const SEQ = ["#d9e8fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"];
   function seqColor(t) {
     t = Math.max(0, Math.min(1, t)); const p = t * (SEQ.length - 1), i = Math.min(Math.floor(p), SEQ.length - 2);
@@ -127,25 +128,34 @@
   const METRIC_HELP = {
     rate: () => `${L - 1}년 대비 ${L}년 학생수가 늘었는지(빨강) 줄었는지(파랑) 비교합니다.`,
     total: () => `${L}년 공시 학생수입니다. 색이 진할수록 학생이 많습니다.`,
-    ret12: () => `${L - 1}년 1학년이 ${L}년 2학년이 되면서 얼마나 남았는지입니다. 100%보다 높으면 빨강, 낮으면 파랑입니다.`
+    ret12: () => `${L - 1}년 1학년이 ${L}년 2학년이 되면서 얼마나 남았는지입니다. 높을수록 막대가 길고 색이 진합니다. 순위의 점선이 100%(감소 없음)입니다.`
   };
 
+  // 지표별 지도 색, 순위 막대(값·축 범위·눈금) 정의
   function metricInfo(stats) {
     const m = state.metric;
     if (m === "total") {
       const max = Math.max(...stats.map(s => s.t), 1);
       return { key: "total", label: `${L}년 학생수`, value: s => s.t, text: s => fmt(s.t) + "명", short: s => compact(s.t),
-               color: s => seqColor(Math.sqrt(s.t / max)), legend: ["적음", "많음"], seq: true };
+               color: s => seqColor(Math.sqrt(s.t / max)), legend: ["적음", "많음"], seq: true,
+               bar: { val: s => s.t, min: 0, max: max * 1.15, tick: v => compact(v), color: () => css("--s1") } };
     }
     if (m === "ret12") {
-      const M = Math.max(0.02, ...stats.map(s => s.ret12).filter(v => v != null).map(v => Math.abs(v - 1)));
+      // 유지율은 높을수록 좋은 값 → 왼쪽 끝(최저치 아래)에서 오른쪽으로 채우는 막대, 진할수록 높음
+      const vs = stats.map(s => s.ret12).filter(v => v != null).map(v => v * 100);
+      const lo = Math.floor((Math.min(...vs) - 0.5) / 5) * 5, hi = Math.max(100.5, Math.ceil(Math.max(...vs) + 0.5));   // 시작점은 5% 단위로 내림
+      const shade = s => s.ret12 == null ? css("--ctx") : seqColor(0.18 + 0.82 * Math.max(0, Math.min(1, (s.ret12 * 100 - lo) / (hi - lo))));
       return { key: "ret12", label: `1→2학년 유지율 (${L - 1}년 1학년 → ${L}년 2학년)`, value: s => s.ret12,
                text: s => pctPlain(s.ret12), short: s => pctPlain(s.ret12, 1),
-               color: s => divColor(s.ret12 == null ? null : s.ret12 - 1, M), legend: [pctPlain(1 - M, 0), "100%", pctPlain(1 + M, 0)], center: 1 };
+               color: shade, legend: [pctPlain(lo / 100, 0), pctPlain(hi / 100, 0)], seq: true,
+               bar: { val: s => s.ret12 * 100, min: lo, max: hi, tick: v => (Math.abs(v % 5) < 1e-9 ? v.toFixed(0) + "%" : ""), color: shade, ref: 100 } };
     }
     const M = Math.max(0.01, ...stats.map(s => s.rate).filter(v => v != null).map(Math.abs));
+    const rv = stats.map(s => s.rate).filter(v => v != null).map(v => v * 100);
     return { key: "rate", label: `전년 대비 증감률 (${L - 1}→${L}년)`, value: s => s.rate, text: s => pct(s.rate), short: s => pct(s.rate),
-             color: s => divColor(s.rate, M), legend: [pct(-M, 0), "0%", pct(M, 0)], center: 0 };
+             color: s => divColor(s.rate, M), legend: [pct(-M, 0), "0%", pct(M, 0)], center: 0,
+             bar: { val: s => s.rate * 100, min: Math.min(0, ...rv), max: Math.max(0, ...rv), diverging: true, tick: v => v.toFixed(0) + "%",
+                    color: s => s.rate >= 0 ? css("--up-fill") : css("--down-fill") } };
   }
 
   /* ───────── Chart.js 공통 ───────── */
@@ -313,7 +323,7 @@
     // 지도는 화면 폭에 맞춰 줄어들므로, 글자가 실제 화면에서 일정한 크기가 되도록 배율을 넘김
     const vbW = Number(MAP.viewBox.split(" ")[2]) || 800;
     svg.style.setProperty("--k", (vbW / Math.max(svg.clientWidth, 1)).toFixed(3));
-    const showVals = svg.clientWidth >= 340;
+    const showVals = svg.clientWidth >= 420;   // 좁으면 값은 순위 막대에서 보여 주고 지도는 이름만
     svg.classList.toggle("tiny", svg.clientWidth < 440);   // 아주 좁으면 작은 시의 이름은 숨김(눌러서 확인)
     svg.querySelectorAll(".city").forEach(p => {
       const s = byName[p.dataset.city];
@@ -342,30 +352,43 @@
     $("#rank-title").textContent = `시·군 순위 — ${info.label}`;
     $("#rank-sub").textContent = `${scopeParts().slice(1).join(" · ")} 기준 · 막대를 누르면 그 지역을 선택합니다.`;
     $("#w-rank").style.height = (sorted.length * (small ? 24 : 22) + 60) + "px";
-    const center = info.center ?? 0;
-    const vals = sorted.map(s => info.seq ? info.value(s) : (info.value(s) - center) * 100);
+    const B = info.bar;
+    const vals = sorted.map(B.val);
     const colors = sorted.map(s => {
-      let c = info.seq ? css("--s1") : (info.value(s) - center >= 0 ? css("--up-fill") : css("--down-fill"));
-      if (state.region !== "경기도" && s.name !== state.region) c = mix(c, css("--card"), 0.65);
+      let c = B.color(s);
+      if (state.region !== "경기도" && s.name !== state.region) c = mix(c.startsWith("#") ? c : rgb2hex(c), css("--card"), 0.65);
       return c;
     });
+    // 축 범위: 증감률은 0을 가운데 두고 양쪽 여유, 나머지는 왼쪽 끝에서 채움
+    const span = B.max - B.min;
+    const xMin = B.diverging ? B.min * (small ? 1.75 : 1.3) : B.min;
+    const xMax = B.diverging ? B.max * (small ? 1.45 : 1.3) : B.max + (B.ref ? 0 : span * 0.02);
+    // 기준선 (유지율 100% = 감소 없음)
+    const refLine = { id: "refLine", afterDatasetsDraw(ch) {
+      if (!B.ref) return;
+      const x = ch.scales.x.getPixelForValue(B.ref), { top, bottom } = ch.chartArea, g = ch.ctx;
+      g.save(); g.strokeStyle = css("--ink-2"); g.lineWidth = 1.5; g.setLineDash([4, 3]);
+      g.beginPath(); g.moveTo(x, top - 4); g.lineTo(x, bottom); g.stroke(); g.setLineDash([]);
+      g.fillStyle = css("--ink-2"); g.font = `600 11px ${Chart.defaults.font.family}`; g.textAlign = "center";
+      g.fillText("100%", x, top - 8); g.restore();
+    } };
     draw("c-rank", {
-      type: "bar",
+      type: "bar", plugins: [refLine],
       data: { labels: sorted.map(s => s.name), datasets: [{ data: vals, backgroundColor: colors, borderRadius: 4, borderSkipped: false, barPercentage: 0.8, categoryPercentage: 0.9 }] },
       options: {
         indexAxis: "y",
-        layout: { padding: { left: 4, right: small ? 44 : 56 } },
+        layout: { padding: { left: 4, right: small ? 44 : 56, top: B.ref ? 16 : 0 } },
         onClick: (e, els) => { if (els.length) { const n = sorted[els[0].index].name; setRegion(state.region === n ? "경기도" : n); } },
         onHover: (e, els) => { e.native.target.style.cursor = els.length ? "pointer" : "default"; },
         plugins: {
           legend: { display: false },
           datalabels: {
             // 막대 끝(음수는 왼쪽 끝) 바깥에 값 표시
-            display: true, anchor: ctx => (vals[ctx.dataIndex] < 0 ? "start" : "end"),
-            align: ctx => (vals[ctx.dataIndex] < 0 ? "left" : "right"), offset: 4, clamp: false, clip: false,
+            display: true, anchor: ctx => (B.diverging && vals[ctx.dataIndex] < 0 ? "start" : "end"),
+            align: ctx => (B.diverging && vals[ctx.dataIndex] < 0 ? "left" : "right"), offset: 4, clamp: false, clip: false,
             color: ctx => sorted[ctx.dataIndex].name === state.region ? css("--ink") : css("--ink-2"),
             font: ctx => ({ size: small ? 10.5 : 11.5, weight: sorted[ctx.dataIndex].name === state.region ? "800" : "600" }),
-            formatter: (v, ctx) => info.seq ? compact(info.value(sorted[ctx.dataIndex])) : info.short(sorted[ctx.dataIndex])
+            formatter: (v, ctx) => info.short(sorted[ctx.dataIndex])
           },
           tooltip: { callbacks: { title: i => i[0].label, label: c => ` ${info.text(sorted[c.dataIndex])} · ${L}년 ${fmt(sorted[c.dataIndex].t)}명` } }
         },
@@ -373,9 +396,8 @@
           y: { grid: { display: false }, border: { color: css("--axis") },
                ticks: { autoSkip: false, color: c => sorted[c.index]?.name === state.region ? css("--ink") : css("--ink-2"),
                         font: c => ({ size: small ? 11.5 : 12.5, weight: sorted[c.index]?.name === state.region ? "800" : "500" }) } },
-          x: { grid: { color: css("--grid") }, border: { display: false },
-               min: info.seq ? 0 : Math.min(0, ...vals) * (small ? 1.75 : 1.3), max: Math.max(0, ...vals) * (small ? 1.45 : 1.3),
-               ticks: { maxTicksLimit: 5, callback: v => info.seq ? compact(v) : (center === 1 ? (100 + v).toFixed(0) + "%" : v.toFixed(0) + "%") } }
+          x: { grid: { color: css("--grid") }, border: { display: false }, min: xMin, max: xMax,
+               ticks: { maxTicksLimit: 6, callback: v => B.tick(v) } }
         }
       }
     });
