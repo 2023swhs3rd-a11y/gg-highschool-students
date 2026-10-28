@@ -6,7 +6,7 @@
   <title>경기도 고등학교 학년별 학생수 추이</title>
   <meta name="description" content="학교알리미 공시자료로 본 경기도 31개 시·군 고등학교 학년별 학생수 3개년 증감 추이">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="style.css?v=202610281600">
+  <link rel="stylesheet" href="style.css?v=202610281700">
 </head>
 <body>
   <a class="skip" href="#main">본문 바로가기</a>
@@ -19,8 +19,8 @@
       <p class="meta" id="meta"></p>
       <nav class="toc" aria-label="목차">
         <a href="#s-summary">한눈에 보기</a>
-        <a href="#s-trend">학년별 추이</a>
         <a href="#s-region">지역 비교</a>
+        <a href="#s-trend">학년별 추이</a>
         <a href="#s-school">학교 찾기</a>
         <a href="#s-table">시·군별 표</a>
         <a href="#s-notes">자료 유의사항</a>
@@ -57,27 +57,6 @@
       <div class="kpis" id="kpis"></div>
     </section>
 
-    <section id="s-trend" class="section">
-      <h2 class="sec-title">학년별 추이</h2>
-      <div class="grid two">
-        <article class="card">
-          <header class="card-h">
-            <h3>공시연도별 학년 학생수</h3>
-            <p class="sub">해마다 1·2·3학년이 각각 몇 명인지 비교합니다. 1학년이 늘면 2~3년 뒤 고교 전체 학생수도 늘어납니다.</p>
-          </header>
-          <div class="chart" id="w-trend"><canvas id="c-trend" role="img" aria-label="공시연도별 학년 학생수 막대그래프"></canvas></div>
-        </article>
-
-        <article class="card">
-          <header class="card-h">
-            <h3>입학생 흐름 (코호트)</h3>
-            <p class="sub">같은 해 입학한 학생이 학년이 올라가며 얼마나 남는지 봅니다. 괄호 안은 직전 학년 대비 증감률입니다.</p>
-          </header>
-          <div class="chart" id="w-cohort"><canvas id="c-cohort" role="img" aria-label="입학연도별 학년 진행 꺾은선그래프"></canvas></div>
-        </article>
-      </div>
-    </section>
-
     <section id="s-region" class="section">
       <h2 class="sec-title">지역 비교</h2>
       <div class="metric-bar">
@@ -107,6 +86,27 @@
             <p class="sub" id="rank-sub"></p>
           </header>
           <div class="chart" id="w-rank"><canvas id="c-rank" role="img" aria-label="시군 순위 막대그래프"></canvas></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="s-trend" class="section">
+      <h2 class="sec-title">학년별 추이</h2>
+      <div class="grid two">
+        <article class="card">
+          <header class="card-h">
+            <h3>공시연도별 학년 학생수</h3>
+            <p class="sub">해마다 1·2·3학년이 각각 몇 명인지 비교합니다. 1학년이 늘면 2~3년 뒤 고교 전체 학생수도 늘어납니다.</p>
+          </header>
+          <div class="chart" id="w-trend"><canvas id="c-trend" role="img" aria-label="공시연도별 학년 학생수 막대그래프"></canvas></div>
+        </article>
+
+        <article class="card">
+          <header class="card-h">
+            <h3>입학생 흐름 (코호트)</h3>
+            <p class="sub">같은 해 입학한 학생이 학년이 올라가며 얼마나 남는지 봅니다. 괄호 안은 직전 학년 대비 증감률입니다.</p>
+          </header>
+          <div class="chart" id="w-cohort"><canvas id="c-cohort" role="img" aria-label="입학연도별 학년 진행 꺾은선그래프"></canvas></div>
         </article>
       </div>
     </section>
@@ -210,7 +210,7 @@
 
   <script src="vendor/chart.umd.js?v=4.4.1"></script>
   <script src="vendor/chartjs-plugin-datalabels.min.js?v=2.2.0"></script>
-  <script src="config.js?v=202610281600"></script>
-  <script src="app.js?v=202610281600"></script>
+  <script src="config.js?v=202610281700"></script>
+  <script src="app.js?v=202610281700"></script>
 </body>
 </html>
