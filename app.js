@@ -522,8 +522,11 @@
   function renderAll() {
     const list = ROWS.filter(r => inFilter(r) && inRegion(r));
     $("#f-region").value = state.region;
-    renderScope(list); renderKPIs(list); renderTrend(list); renderCohort(list);
-    renderMap(); renderRank(); renderSchools(); renderDetail(); renderCityTable();
+    // 한 부분에서 오류가 나도 나머지는 그려지도록 각각 따로 실행
+    [() => renderScope(list), () => renderKPIs(list), () => renderTrend(list), () => renderCohort(list),
+     renderMap, renderRank, renderSchools, renderDetail, renderCityTable].forEach(fn => {
+      try { fn(); } catch (e) { console.error("그리기 오류:", e); }
+    });
   }
   function setRegion(r) { state.region = r; state.schoolLimit = PAGE; if (state.school && !ROWS.some(x => x.code === state.school && inRegion(x))) state.school = null; renderAll(); }
 
@@ -626,7 +629,7 @@
   (async function init() {
     document.title = CFG.TITLE; $("#title").textContent = CFG.TITLE;
     try {
-      const [{ rows, from }, map] = await Promise.all([loadData(), fetch("data/gyeonggi-map.json").then(r => r.json())]);
+      const [{ rows, from }, map] = await Promise.all([loadData(), fetch("data/gyeonggi-map.json", { cache: "no-cache" }).then(r => r.json())]);
       ROWS = rows; MAP = map; FROM = from;
       YEARS = [...new Set(ROWS.map(r => r.yr))].sort((a, b) => b - a);
       L = YEARS[0]; SHOWN = YEARS.slice(0, 3);
