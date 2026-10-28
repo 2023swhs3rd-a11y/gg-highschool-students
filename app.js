@@ -304,7 +304,7 @@
         `<tspan class="n" x="${c.x}" dy="${c.a < 2600 ? "0.35em" : "-0.15em"}">${esc(n.replace(/(시|군)$/, ""))}</tspan>` +
         (c.a < 2600 ? "" : `<tspan class="v" x="${c.x}" dy="1.25em"></tspan>`) + `</text>`).join("");
     svg.querySelectorAll(".city").forEach(p => {
-      const pick = () => setRegion(state.region === p.dataset.city ? "경기도" : p.dataset.city);
+      const pick = () => setRegion(state.region === p.dataset.city ? "경기도" : p.dataset.city, true);
       p.addEventListener("click", pick);
       p.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
       p.addEventListener("mousemove", e => {
@@ -411,7 +411,7 @@
         onClick: (e, els) => {
           if (!els.length) return;
           const it = sorted[els[0].index];
-          if (schoolMode) openSchool(it.code); else setRegion(state.region === it.name ? "경기도" : it.name);
+          if (schoolMode) openSchool(it.code); else setRegion(state.region === it.name ? "경기도" : it.name, true);
         },
         onHover: (e, els) => { e.native.target.style.cursor = els.length ? "pointer" : "default"; },
         plugins: {
@@ -581,6 +581,7 @@
     const list = ROWS.filter(r => inFilter(r) && inRegion(r));
     $("#f-region").value = state.region;
     $("#render-err")?.remove();
+    if (!$("#map-note")?.classList.contains("flash")) idleMapNote();
     // 한 부분에서 오류가 나도 나머지는 그려지도록 각각 따로 실행
     [() => renderScope(list), () => renderKPIs(list), () => renderTrend(list), () => renderCohort(list),
      renderMap, renderRank, renderSchools, renderDetail, renderCityTable].forEach(fn => {
@@ -592,7 +593,33 @@
     if (!box) { box = document.createElement("p"); box.id = "render-err"; box.className = "err"; $("#main").prepend(box); }
     box.textContent = `일부 화면을 그리지 못했습니다: ${e && e.message ? e.message : e} — 이 문구를 캡처해 알려 주세요.`;
   }
-  function setRegion(r) { state.region = r; state.schoolLimit = PAGE; if (state.school && !ROWS.some(x => x.code === state.school && inRegion(x))) state.school = null; renderAll(); }
+  function setRegion(r, notify) {
+    state.region = r; state.schoolLimit = PAGE;
+    if (state.school && !ROWS.some(x => x.code === state.school && inRegion(x))) state.school = null;
+    renderAll();
+    if (notify) showMapNote(r);
+  }
+
+  // 지도·순위에서 지역을 바꾸면 화면 밖(위쪽)의 요약이 바뀐 것을 바로 알려 줌
+  let noteTimer;
+  function showMapNote(r) {
+    const n = $("#map-note"); if (!n) return;
+    const cur = agg(ROWS.filter(x => x.yr === L && inFilter(x) && inRegion(x)));
+    n.innerHTML = (r === "경기도"
+      ? `<b>경기도 전체</b>로 돌아왔습니다.`
+      : `<b>${esc(r)}</b> 선택 — ${L}년 ${fmt(cur.n)}개교 ${fmt(cur.t)}명. 위 요약·추이와 아래 학교 목록이 ${esc(r)} 기준으로 바뀌었습니다. 같은 지역을 다시 누르면 경기도 전체로 돌아갑니다.`) +
+      ` <button type="button" class="btn ghost" data-go="s-summary">요약 보기 ↑</button>`;
+    n.hidden = false;
+    n.classList.remove("flash"); void n.offsetWidth; n.classList.add("flash");
+    clearTimeout(noteTimer); noteTimer = setTimeout(() => idleMapNote(), 10000);
+  }
+  function idleMapNote() {
+    const n = $("#map-note"); if (!n) return;
+    n.hidden = false; n.classList.remove("flash");
+    n.innerHTML = state.region === "경기도"
+      ? `지역을 누르면 페이지 전체가 그 지역 기준으로 바뀝니다.`
+      : `지금 <b>${esc(state.region)}</b> 기준입니다. 같은 지역을 다시 누르면 경기도 전체로 돌아갑니다.`;
+  }
 
   /* ───────── 툴팁 ───────── */
   function showTip(e, html) {
@@ -631,6 +658,10 @@
     const rank = t => { const i = TYPE_ORDER.indexOf(t); return i < 0 ? 99 : i; };
     chipGroup($("#f-type"), [...new Set(ROWS.map(r => r.type))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b)), state.types);
     chipGroup($("#f-fond"), [...new Set(ROWS.map(r => r.fond))].sort(), state.fonds);
+
+    $("#map-note").addEventListener("click", e => {
+      const b = e.target.closest("[data-go]"); if (b) document.getElementById(b.dataset.go).scrollIntoView({ behavior: "smooth" });
+    });
 
     $("#f-reset").addEventListener("click", () => {
       state.types.clear(); state.fonds.clear(); state.school = null;

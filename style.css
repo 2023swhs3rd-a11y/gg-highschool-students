@@ -275,3 +275,13 @@ input[type=search] { width: min(300px, 100%); }
   .tbl.compact { font-size: 0.8em; }
   .tbl.compact th, .tbl.compact td { padding: 7px 4px; }
 }
+
+/* 지도 클릭 안내 */
+.map-note {
+  margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; font-size: 0.9em; line-height: 1.5;
+  background: var(--accent-wash); color: var(--ink); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.map-note .btn.ghost { padding: 0 4px; min-height: 0; }
+.map-note.flash { animation: noteIn .35s ease-out; }
+@keyframes noteIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .map-note.flash { animation: none; } }
