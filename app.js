@@ -67,7 +67,8 @@
         g2: num(r, "2학년_남") + num(r, "2학년_여"),
         g3: num(r, "3학년_남") + num(r, "3학년_여"),
         etc: num(r, "기타_남") + num(r, "기타_여"),
-        m: num(r, "남_계"), w: num(r, "여_계"), t: num(r, "총계")
+        m: num(r, "남_계"), w: num(r, "여_계"), t: num(r, "총계"),
+        manual: str(r, "자료출처").includes("수동")
       };
     }).filter(Boolean);
   }
@@ -407,7 +408,7 @@
     $("#school-sub").textContent = `${scopeLabel()} · ${L}년 공시 ${fmt(list.length)}개교. 학교를 누르면 학년별 3개년 추이를 볼 수 있습니다.`;
     $("#t-school tbody").innerHTML = list.slice(0, state.schoolLimit).map(r => `
       <tr data-code="${esc(r.code)}" class="${r.code === state.school ? "sel" : ""}" tabindex="0">
-        <td class="name">${esc(r.name)}${r.isNew ? ` <span class="tag new">${L}년 첫 공시</span>` : ""}<span class="go" aria-hidden="true">›</span>
+        <td class="name">${esc(r.name)}${r.isNew ? ` <span class="tag new">${L}년 첫 공시</span>` : ""}${r.manual ? ` <span class="tag manual" title="학교알리미 API에 없어 공시 화면을 보고 직접 입력한 값">수동 입력</span>` : ""}<span class="go" aria-hidden="true">›</span>
           <small class="m-only">${esc(r.city)} · ${esc(r.type)} · ${esc(r.fond)}</small></td>
         <td class="opt">${esc(r.city)}</td><td class="opt"><span class="tag">${esc(r.type)}</span></td><td class="opt">${esc(r.fond)}</td>
         <td class="num"><b>${fmt(r.t)}</b></td><td class="num ${cls(r.rate)}">${pct(r.rate)}</td>
@@ -430,7 +431,9 @@
     box.hidden = false;
     const small = narrow("c-school", BAR_LABEL_PX);   // 상자를 연 뒤에 폭을 재야 정확함
     $("#d-title").textContent = last.name;
-    $("#d-sub").textContent = [last.addr || last.city, last.type, last.fond].filter(Boolean).join(" · ");
+    const manualYrs = rows.filter(r => r.manual).map(r => r.yr + "년");
+    $("#d-sub").textContent = [last.addr || last.city, last.type, last.fond].filter(Boolean).join(" · ") +
+      (manualYrs.length ? ` · ${manualYrs.join(", ")} 자료는 API에 없어 직접 입력한 값` : "");
     const xs = SHOWN.slice().reverse().map(y => rows.find(r => r.yr === y) || { yr: y, g1: null, g2: null, g3: null });
     const ds = (label, k, color) => ({ label, data: xs.map(r => r[k]), backgroundColor: color,
       borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: "bottom", maxBarThickness: 34, categoryPercentage: 0.78, barPercentage: 0.9 });
@@ -504,6 +507,8 @@
     const gone = [...before.values()].filter(r => !now.has(r.code));
     const list = arr => arr.map(r => `${esc(r.name)}(${esc(r.city)})`).join(", ");
     const items = [];
+    const manual = ROWS.filter(r => r.manual);
+    if (manual.length) items.push(`<b>직접 입력한 자료 ${manual.length}건</b>: ${manual.map(r => `${esc(r.name)}(${r.yr}년)`).join(", ")}. 학교알리미 Open API에 빠져 있어 학교알리미 공시 화면의 학년별 학생수를 보고 입력했습니다. 학교 목록에 <span class="tag manual">수동 입력</span>으로 표시됩니다.`);
     if (added.length) items.push(`<b>${L}년에 처음 공시된 학교 ${added.length}곳</b>: ${list(added)}. 신설 학교는 1학년만 있어 해당 지역의 학생수 증가와 1학년 수에 반영됩니다.`);
     if (gone.length) items.push(`<b>${L - 1}년에는 있었지만 ${L}년 자료에 없는 학교 ${gone.length}곳</b>: ${list(gone)}. 통폐합·교명 변경·공시 누락 여부를 학교알리미에서 확인하세요. 이 학교들의 ${L - 1}년 학생수(${fmt(gone.reduce((s, r) => s + r.t, 0))}명)는 전년 대비 증감률에 감소로 반영됩니다.`);
     items.push(`<b>화성시</b>는 2026년 2월 만세·효행·병점·동탄 4개 구가 생겨 ${2026}년 자료부터 구 단위로 수집해 합산했습니다.`);

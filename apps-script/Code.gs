@@ -16,6 +16,7 @@ const LATEST_YEAR = 2026;  // 최신 공시 연도
 const SHOW_YEARS  = 3;     // 조회·표시 연도 수 (Open API는 최근 3년만 제공)
 
 const DB_SHEET      = "DB";
+const FIX_SHEET     = "보정";   // API에 빠진 학교를 손으로 입력하는 시트
 const SUMMARY_SHEET = "00_경기도_전체_요약";
 
 // 시군 → 학교알리미 시군구 코드 (일반구가 있는 시는 구 코드 전부)
@@ -37,8 +38,10 @@ const REGION_MAP = {
 const DB_HEADERS = [
   "공시연도", "시군", "시군구코드", "주소", "학교코드", "학교명", "학교유형", "설립", "주야",
   "1학년_남", "1학년_여", "2학년_남", "2학년_여", "3학년_남", "3학년_여",
-  "기타_남", "기타_여", "남_계", "여_계", "총계"
+  "기타_남", "기타_여", "남_계", "여_계", "총계", "자료출처"
 ];
+const API_SOURCE = "학교알리미 API";
+const FIX_SOURCE = "수동 입력";
 
 /* ───────────────────────── 메뉴 ───────────────────────── */
 
@@ -47,6 +50,8 @@ function onOpen() {
     .createMenu("학생수 데이터")
     .addItem("API에서 새로 수집", "collectAll")
     .addItem("요약·시군 시트만 다시 만들기", "rebuildReports")
+    .addSeparator()
+    .addItem("보정 시트 열기 (API에 빠진 학교 입력)", "openFixSheet")
     .addToUi();
 }
 
@@ -100,7 +105,8 @@ function collectAll() {
           s.HS_KND_SC_NM || "", s.FOND_SC_CODE || "", s.DGHT_CRSE_SC_CODE || "",
           n("COL_M1"), n("COL_W1"), n("COL_M2"), n("COL_W2"), n("COL_M3"), n("COL_W3"),
           n("COL_M7") + n("COL_M8"), n("COL_W7") + n("COL_W8"),
-          n("COL_MSUM"), n("COL_WSUM"), n("SUM") || (n("COL_MSUM") + n("COL_WSUM"))
+          n("COL_MSUM"), n("COL_WSUM"), n("SUM") || (n("COL_MSUM") + n("COL_WSUM")),
+          API_SOURCE
         ]);
       });
     });
@@ -111,6 +117,8 @@ function collectAll() {
     SpreadsheetApp.getUi().alert("받은 데이터가 없습니다. 실행 로그를 확인해 주세요.");
     return;
   }
+
+  const fixed = mergeFixes_(ss, rows, seen);
 
   rows.sort((a, b) => b[0] - a[0] || a[1].localeCompare(b[1]) || a[5].localeCompare(b[5]));
 
@@ -129,7 +137,61 @@ function collectAll() {
   db.getRange(2, DB_HEADERS.length + 2).setValue(stamp);
 
   rebuildReports();
-  ss.toast(`${rows.length.toLocaleString()}건 수집 완료 (${LATEST_YEAR - SHOW_YEARS + 1}~${LATEST_YEAR})`, "완료", 10);
+  ss.toast(`${rows.length.toLocaleString()}건 수집 완료 (${LATEST_YEAR - SHOW_YEARS + 1}~${LATEST_YEAR})` +
+           (fixed.used.length ? ` · 수동 입력 ${fixed.used.length}건 반영` : "") +
+           (fixed.skipped.length ? ` · API에 생겨서 건너뛴 보정 ${fixed.skipped.length}건` : ""), "완료", 15);
+}
+
+/* ─────────────────── 보정(수동 입력) ─────────────────── */
+
+/**
+ * 보정 시트의 행을 DB에 합칩니다.
+ *  - 같은 공시연도·학교코드가 API에 있으면 API 값을 쓰고 보정 행은 건너뜁니다.
+ *  - 학년별 인원이 비어 있는 행은 아직 입력 전으로 보고 건너뜁니다.
+ *  - 남_계·여_계·총계가 비어 있으면 학년별 인원과 기타를 더해 채웁니다.
+ */
+function mergeFixes_(ss, rows, seen) {
+  const used = [], skipped = [];
+  const sh = ss.getSheetByName(FIX_SHEET);
+  if (!sh || sh.getLastRow() < 2) return { used, skipped };
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+  const ix = name => head.indexOf(name);
+  sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues().forEach(r => {
+    const v = name => (ix(name) < 0 ? "" : r[ix(name)]);
+    const num = name => Number(v(name) || 0);
+    const yr = Number(v("공시연도")), code = String(v("학교코드")).trim();
+    if (!yr || !code) return;
+    const grades = ["1학년_남", "1학년_여", "2학년_남", "2학년_여", "3학년_남", "3학년_여"].map(num);
+    if (grades.every(x => x === 0)) return;                      // 아직 숫자를 넣지 않은 행
+    const key = yr + "|" + code;
+    if (seen[key]) { skipped.push(v("학교명")); return; }        // API에 이미 있음
+    seen[key] = true;
+    const etcM = num("기타_남"), etcW = num("기타_여");
+    const m = num("남_계") || grades[0] + grades[2] + grades[4] + etcM;
+    const w = num("여_계") || grades[1] + grades[3] + grades[5] + etcW;
+    rows.push([
+      yr, String(v("시군")), String(v("시군구코드")), String(v("주소")), code, String(v("학교명")),
+      String(v("학교유형")), String(v("설립")), String(v("주야") || "주간"),
+      ...grades, etcM, etcW, m, w, num("총계") || m + w, FIX_SOURCE
+    ]);
+    used.push(v("학교명"));
+  });
+  return { used, skipped };
+}
+
+/** 보정 시트가 없으면 만들고 엽니다. */
+function openFixSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(FIX_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(FIX_SHEET);
+    sh.getRange(1, 1, 1, DB_HEADERS.length - 1).setValues([DB_HEADERS.slice(0, -1)])
+      .setFontWeight("bold").setBackground("#7F6000").setFontColor("white");
+    sh.setFrozenRows(1);
+    sh.getRange(1, DB_HEADERS.length + 1).setValue(
+      "API에 빠진 학교를 학교알리미 '학년별·학급별 학생수' 공시를 보고 입력하세요. 학년별 남·여만 넣으면 계는 자동 계산됩니다.");
+  }
+  ss.setActiveSheet(sh);
 }
 
 /* ─────────────────── 요약·시군 시트 ─────────────────── */

@@ -227,6 +227,7 @@ main { padding-top: clamp(16px, 2.5vw, 28px); padding-bottom: 48px; }
 
 .m-only { display: none; }
 .tbl .tag.new { background: var(--accent-wash); color: var(--accent); }
+.tag.manual { background: color-mix(in srgb, var(--s4) 22%, var(--card)); color: var(--ink); display: inline-block; font-size: 0.86em; border-radius: 6px; padding: 1px 8px; }
 .swipe { font-size: 0.82em; color: var(--muted); margin: 0 0 8px; }
 @media (max-width: 720px) {
   .m-only { display: block; }
