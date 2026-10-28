@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>경기도 고등학교 학년별 학생수 추이</title>
+  <meta name="description" content="학교알리미 공시자료로 본 경기도 31개 시·군 고등학교 학년별 학생수 3개년 증감 추이">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <p class="eyebrow">학교알리미 공시 · 경기도 고등학교</p>
+      <h1 id="title">경기도 고등학교 학년별 학생수 추이</h1>
+      <p class="lede" id="lede">자료를 불러오는 중입니다…</p>
+    </div>
+  </header>
+
+  <nav class="filters" aria-label="필터">
+    <div class="wrap filter-row">
+      <label class="field">
+        <span>지역</span>
+        <select id="f-region"><option value="경기도">경기도 전체</option></select>
+      </label>
+      <fieldset class="field chips" id="f-type">
+        <legend>학교유형</legend>
+      </fieldset>
+      <fieldset class="field chips" id="f-fond">
+        <legend>설립</legend>
+      </fieldset>
+      <button type="button" class="reset" id="f-reset">초기화</button>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <section class="kpis" id="kpis" aria-live="polite"></section>
+
+    <section class="grid two">
+      <article class="card">
+        <header class="card-h">
+          <h2>학년별 학생수 <small id="trend-scope"></small></h2>
+          <p class="sub">공시연도별 1·2·3학년 학생수</p>
+        </header>
+        <div class="chart"><canvas id="c-trend" aria-label="학년별 학생수 막대그래프"></canvas></div>
+      </article>
+
+      <article class="card">
+        <header class="card-h">
+          <h2>입학 연도별 학년 진행 <small id="cohort-scope"></small></h2>
+          <p class="sub">같은 해 입학한 학생이 학년이 올라가며 몇 명 남는지 (전출입·학업중단·편입 반영)</p>
+        </header>
+        <div class="chart"><canvas id="c-cohort" aria-label="코호트 꺾은선그래프"></canvas></div>
+      </article>
+    </section>
+
+    <section class="grid map-grid">
+      <article class="card">
+        <header class="card-h row">
+          <div>
+            <h2>시·군 지도</h2>
+            <p class="sub">지역을 누르면 페이지 전체가 그 지역으로 바뀝니다</p>
+          </div>
+          <div class="seg" role="radiogroup" aria-label="지도 지표" id="map-metric">
+            <button type="button" role="radio" data-v="rate" aria-checked="true">전년비 증감률</button>
+            <button type="button" role="radio" data-v="total" aria-checked="false">학생수</button>
+            <button type="button" role="radio" data-v="ret12" aria-checked="false">1→2학년 유지율</button>
+          </div>
+        </header>
+        <div class="map-box">
+          <svg id="map" role="img" aria-label="경기도 시군 단계구분도"></svg>
+          <div class="legend" id="map-legend"></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card-h">
+          <h2>시·군 순위 <small id="rank-scope"></small></h2>
+          <p class="sub" id="rank-sub">최신 공시 전년비 학생수 증감률</p>
+        </header>
+        <div class="chart tall"><canvas id="c-rank" aria-label="시군 순위 막대그래프"></canvas></div>
+      </article>
+    </section>
+
+    <section class="card">
+      <header class="card-h row">
+        <div>
+          <h2>학교 찾기</h2>
+          <p class="sub" id="school-sub">학교를 누르면 학년별 3개년 추이를 볼 수 있습니다</p>
+        </div>
+        <input type="search" id="q" placeholder="학교명 검색" aria-label="학교명 검색">
+      </header>
+      <div class="table-wrap">
+        <table class="tbl" id="t-school">
+          <thead><tr>
+            <th data-k="name">학교명</th><th data-k="city">시·군</th><th data-k="type">유형</th><th data-k="fond">설립</th>
+            <th data-k="t" class="num">학생수</th><th data-k="rate" class="num">전년비</th>
+            <th data-k="g1" class="num">1학년</th><th data-k="g2" class="num">2학년</th><th data-k="g3" class="num">3학년</th>
+            <th data-k="ret12" class="num">1→2 유지율</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="more" id="school-more"></p>
+    </section>
+
+    <section class="card" id="detail" hidden>
+      <header class="card-h row">
+        <div>
+          <h2 id="d-title"></h2>
+          <p class="sub" id="d-sub"></p>
+        </div>
+        <button type="button" class="reset" id="d-close">닫기</button>
+      </header>
+      <div class="grid two inner">
+        <div class="chart"><canvas id="c-school" aria-label="학교 학년별 학생수"></canvas></div>
+        <div class="table-wrap"><table class="tbl compact" id="t-detail"></table></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header class="card-h row">
+        <div>
+          <h2>시·군별 표</h2>
+          <p class="sub">현재 필터 기준 합계 · 머리글을 누르면 정렬됩니다</p>
+        </div>
+        <button type="button" class="reset" id="dl">CSV 내려받기</button>
+      </header>
+      <div class="table-wrap">
+        <table class="tbl" id="t-city"></table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot wrap">
+    <p id="source"></p>
+    <p>증감률은 전년도 같은 범위의 학생수 대비입니다. 학년 진행(유지율)은 학교 단위가 아닌 지역 합계로 계산했으며, 전출입·학업중단·편입·학교 신설/폐교가 함께 반영됩니다.</p>
+  </footer>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
