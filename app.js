@@ -346,17 +346,31 @@
   }
 
   function renderRank() {
-    const stats = CITIES.map(cityStats), info = metricInfo(stats);
+    // 지역을 고르면 그 지역 학교 순위, 아니면 시·군 순위
+    const schoolMode = state.region !== "경기도";
+    const shortName = n => n.replace(/고등학교$/, "고");
+    const stats = schoolMode
+      ? schoolList().map(r => ({ ...r, full: r.name, name: shortName(r.name) }))
+      : CITIES.map(cityStats);
+    const info = metricInfo(stats);
     const sorted = stats.filter(s => info.value(s) != null).sort((a, b) => info.value(b) - info.value(a));
+    const missing = stats.length - sorted.length;
+    const isHL = s => schoolMode ? s.code === state.school : s.name === state.region;
+    const anyHL = schoolMode ? !!state.school : true;
     const small = narrow("c-rank");
-    $("#rank-title").textContent = `시·군 순위 — ${info.label}`;
-    $("#rank-sub").textContent = `${scopeParts().slice(1).join(" · ")} 기준 · 막대를 누르면 그 지역을 선택합니다.`;
+    $("#rank-title").textContent = schoolMode ? `${state.region} 학교 순위 — ${info.label}` : `시·군 순위 — ${info.label}`;
+    $("#rank-sub").innerHTML = schoolMode
+      ? `${esc(scopeParts().slice(1).join(" · "))} 기준 ${sorted.length}개교` +
+        (missing ? ` (작년 자료가 없는 신설 학교 ${missing}곳 제외)` : "") +
+        ` · 막대를 누르면 학교 상세가 열립니다. <button type="button" class="btn ghost" id="rank-back">시·군 순위로 돌아가기</button>`
+      : `${esc(scopeParts().slice(1).join(" · "))} 기준 · 막대를 누르면 그 지역의 학교 순위로 바뀝니다.`;
+    const back = $("#rank-back"); if (back) back.onclick = () => setRegion("경기도");
     $("#w-rank").style.height = (sorted.length * (small ? 24 : 22) + 60) + "px";
     const B = info.bar;
     const vals = sorted.map(B.val);
     const colors = sorted.map(s => {
       let c = B.color(s);
-      if (state.region !== "경기도" && s.name !== state.region) c = mix(c.startsWith("#") ? c : rgb2hex(c), css("--card"), 0.65);
+      if (state.region !== "경기도" && anyHL && !isHL(s)) c = mix(c.startsWith("#") ? c : rgb2hex(c), css("--card"), 0.65);
       return c;
     });
     // 축 범위: 증감률은 0을 가운데 두고 양쪽 여유, 나머지는 왼쪽 끝에서 채움
@@ -378,7 +392,11 @@
       options: {
         indexAxis: "y",
         layout: { padding: { left: 4, right: small ? 44 : 56, top: B.ref ? 16 : 0 } },
-        onClick: (e, els) => { if (els.length) { const n = sorted[els[0].index].name; setRegion(state.region === n ? "경기도" : n); } },
+        onClick: (e, els) => {
+          if (!els.length) return;
+          const it = sorted[els[0].index];
+          if (schoolMode) openSchool(it.code); else setRegion(state.region === it.name ? "경기도" : it.name);
+        },
         onHover: (e, els) => { e.native.target.style.cursor = els.length ? "pointer" : "default"; },
         plugins: {
           legend: { display: false },
@@ -386,16 +404,18 @@
             // 막대 끝(음수는 왼쪽 끝) 바깥에 값 표시
             display: true, anchor: ctx => (B.diverging && vals[ctx.dataIndex] < 0 ? "start" : "end"),
             align: ctx => (B.diverging && vals[ctx.dataIndex] < 0 ? "left" : "right"), offset: 4, clamp: false, clip: false,
-            color: ctx => sorted[ctx.dataIndex].name === state.region ? css("--ink") : css("--ink-2"),
-            font: ctx => ({ size: small ? 10.5 : 11.5, weight: sorted[ctx.dataIndex].name === state.region ? "800" : "600" }),
+            color: ctx => isHL(sorted[ctx.dataIndex]) ? css("--ink") : css("--ink-2"),
+            backgroundColor: B.ref ? css("--card") : null, borderRadius: 3, padding: { top: 1, bottom: 1, left: 3, right: 3 },
+            font: ctx => ({ size: small ? 10.5 : 11.5, weight: isHL(sorted[ctx.dataIndex]) ? "800" : "600" }),
             formatter: (v, ctx) => info.short(sorted[ctx.dataIndex])
           },
-          tooltip: { callbacks: { title: i => i[0].label, label: c => ` ${info.text(sorted[c.dataIndex])} · ${L}년 ${fmt(sorted[c.dataIndex].t)}명` } }
+          tooltip: { callbacks: { title: i => sorted[i[0].dataIndex].full || i[0].label,
+                                  label: c => ` ${info.text(sorted[c.dataIndex])} · ${L}년 ${fmt(sorted[c.dataIndex].t)}명` } }
         },
         scales: {
           y: { grid: { display: false }, border: { color: css("--axis") },
-               ticks: { autoSkip: false, color: c => sorted[c.index]?.name === state.region ? css("--ink") : css("--ink-2"),
-                        font: c => ({ size: small ? 11.5 : 12.5, weight: sorted[c.index]?.name === state.region ? "800" : "500" }) } },
+               ticks: { autoSkip: false, color: c => sorted[c.index] && isHL(sorted[c.index]) ? css("--ink") : css("--ink-2"),
+                        font: c => ({ size: small ? 11.5 : 12.5, weight: sorted[c.index] && isHL(sorted[c.index]) ? "800" : "500" }) } },
           x: { grid: { color: css("--grid") }, border: { display: false }, min: xMin, max: xMax,
                ticks: { maxTicksLimit: 6, callback: v => B.tick(v) } }
         }
@@ -544,11 +564,17 @@
   function renderAll() {
     const list = ROWS.filter(r => inFilter(r) && inRegion(r));
     $("#f-region").value = state.region;
+    $("#render-err")?.remove();
     // 한 부분에서 오류가 나도 나머지는 그려지도록 각각 따로 실행
     [() => renderScope(list), () => renderKPIs(list), () => renderTrend(list), () => renderCohort(list),
      renderMap, renderRank, renderSchools, renderDetail, renderCityTable].forEach(fn => {
-      try { fn(); } catch (e) { console.error("그리기 오류:", e); }
+      try { fn(); } catch (e) { console.error("그리기 오류:", e); showRenderError(e); }
     });
+  }
+  function showRenderError(e) {
+    let box = $("#render-err");
+    if (!box) { box = document.createElement("p"); box.id = "render-err"; box.className = "err"; $("#main").prepend(box); }
+    box.textContent = `일부 화면을 그리지 못했습니다: ${e && e.message ? e.message : e} — 이 문구를 캡처해 알려 주세요.`;
   }
   function setRegion(r) { state.region = r; state.schoolLimit = PAGE; if (state.school && !ROWS.some(x => x.code === state.school && inRegion(x))) state.school = null; renderAll(); }
 
@@ -577,7 +603,7 @@
   }
 
   function openSchool(code) {
-    state.school = code; renderSchools(); renderDetail();
+    state.school = code; renderSchools(); renderDetail(); renderRank();
     $("#detail").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -617,7 +643,7 @@
       const b = e.target.closest("[data-more]"); if (!b) return;
       state.schoolLimit = b.dataset.more === "all" ? 1e9 : state.schoolLimit + PAGE; renderSchools();
     });
-    $("#d-close").addEventListener("click", () => { state.school = null; renderSchools(); renderDetail(); $("#t-school").scrollIntoView({ behavior: "smooth", block: "start" }); });
+    $("#d-close").addEventListener("click", () => { state.school = null; renderSchools(); renderDetail(); renderRank(); $("#t-school").scrollIntoView({ behavior: "smooth", block: "start" }); });
 
     const pickCity = tr => { if (!tr) return; const c = tr.dataset.city; setRegion(c === "경기도" || state.region === c ? "경기도" : c); $("#s-summary").scrollIntoView({ behavior: "smooth" }); };
     $("#t-city").addEventListener("click", e => {
