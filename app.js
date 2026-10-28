@@ -175,8 +175,14 @@
     if (D.plugins.datalabels) D.plugins.datalabels.display = false;
   }
   function draw(id, cfg) {
-    if (charts[id]) charts[id].destroy();
-    charts[id] = new Chart(document.getElementById(id), cfg);
+    if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    // 같은 canvas를 다시 쓰면 일부 브라우저에서 이전 크기 상태가 남아 빈 그래프가 되므로 매번 새 canvas로 교체
+    const old = document.getElementById(id);
+    const fresh = old.cloneNode(false);
+    fresh.removeAttribute("width"); fresh.removeAttribute("height"); fresh.removeAttribute("style");
+    old.replaceWith(fresh);
+    charts[id] = new Chart(fresh, cfg);
+    requestAnimationFrame(() => { const c = charts[id]; if (c && c.canvas === fresh) c.resize(); });
   }
   const narrow = (id, px = 520) => (document.getElementById(id)?.parentElement.clientWidth || 999) < px;
   const BAR_LABEL_PX = 720;   // 막대 9개에 가로 숫자가 겹치지 않는 최소 폭
@@ -720,6 +726,10 @@
   }
 
   /* ───────── 시작 ───────── */
+
+  // 그래프는 다음 프레임에 그려지므로, 그때 난 오류도 화면에 보이게 함
+  addEventListener("error", e => { if (ROWS.length) showRenderError(e.error || e.message); });
+  addEventListener("unhandledrejection", e => { if (ROWS.length) showRenderError(e.reason); });
 
   (async function init() {
     document.title = CFG.TITLE; $("#title").textContent = CFG.TITLE;
