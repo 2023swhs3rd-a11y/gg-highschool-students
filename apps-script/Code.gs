@@ -115,6 +115,7 @@ function collectAll() {
   rows.sort((a, b) => b[0] - a[0] || a[1].localeCompare(b[1]) || a[5].localeCompare(b[5]));
 
   const db = ss.getSheetByName(DB_SHEET) || ss.insertSheet(DB_SHEET);
+  if (db.getFilter()) db.getFilter().remove();
   db.clear();
   db.getRange(1, 1, 1, DB_HEADERS.length).setValues([DB_HEADERS])
     .setFontWeight("bold").setBackground("#1F4E78").setFontColor("white");
