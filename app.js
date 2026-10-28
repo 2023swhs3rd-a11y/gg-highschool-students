@@ -168,6 +168,8 @@
 
   function chartDefaults() {
     if (window.ChartDataLabels) Chart.register(window.ChartDataLabels);
+    // 범례가 정리된(detach·destroy) 차트로 늦게 들어온 이벤트는 Chart.js 범례 플러그인이 handleEvent 오류를 내므로 버림
+    if (!Chart.registry.plugins.get("safeEvent")) Chart.register({ id: "safeEvent", beforeEvent: c => (c.legend ? undefined : false) });
     const D = Chart.defaults;
     D.font.family = getComputedStyle(document.body).fontFamily;
     D.font.size = 12.5;
@@ -424,7 +426,8 @@
         onClick: (e, els) => {
           if (!els.length) return;
           const it = sorted[els[0].index];
-          if (schoolMode) openSchool(it.code); else setRegion(state.region === it.name ? "경기도" : it.name, true);
+          // 클릭 처리 중에 그래프를 destroy하지 않도록 한 박자 늦춤
+          setTimeout(() => { if (schoolMode) openSchool(it.code); else setRegion(state.region === it.name ? "경기도" : it.name, true); });
         },
         onHover: (e, els) => { e.native.target.style.cursor = els.length ? "pointer" : "default"; },
         plugins: {
