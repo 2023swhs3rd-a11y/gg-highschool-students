@@ -359,24 +359,40 @@
     const anyHL = schoolMode ? !!state.school : true;
     const small = narrow("c-rank");
     $("#rank-title").textContent = schoolMode ? `${state.region} 학교 순위 — ${info.label}` : `시·군 순위 — ${info.label}`;
+    $("#w-rank").style.height = (sorted.length * (small ? 24 : 22) + 60) + "px";
+    const B = info.bar;
+    const raw = sorted.map(B.val);
+    // 증감률에서 신설·폐교 직전 학교처럼 극단값이 있으면 막대를 축 끝에서 자르고(라벨은 실제 값) 나머지가 보이게 함
+    let lo = B.min, hi = B.max, clipped = new Set();
+    if (B.diverging && raw.length > 4) {
+      const abs = raw.map(Math.abs).sort((a, b) => a - b);
+      const cap = Math.max(5, abs[Math.floor(abs.length * 0.8)] * 2.5);
+      raw.forEach((v, i) => { if (Math.abs(v) > cap) clipped.add(i); });
+      if (clipped.size) { lo = Math.max(B.min, -cap); hi = Math.min(B.max, cap); }
+    }
+    const vals = raw.map(v => Math.max(lo, Math.min(hi, v)));
     $("#rank-sub").innerHTML = schoolMode
       ? `${esc(scopeParts().slice(1).join(" · "))} 기준 ${sorted.length}개교` +
         (missing ? ` (작년 자료가 없는 신설 학교 ${missing}곳 제외)` : "") +
+        (clipped.size ? ` · ▸ 표시는 값이 커서 막대를 잘라 그린 학교` : "") +
         ` · 막대를 누르면 학교 상세가 열립니다. <button type="button" class="btn ghost" id="rank-back">시·군 순위로 돌아가기</button>`
       : `${esc(scopeParts().slice(1).join(" · "))} 기준 · 막대를 누르면 그 지역의 학교 순위로 바뀝니다.`;
     const back = $("#rank-back"); if (back) back.onclick = () => setRegion("경기도");
-    $("#w-rank").style.height = (sorted.length * (small ? 24 : 22) + 60) + "px";
-    const B = info.bar;
-    const vals = sorted.map(B.val);
     const colors = sorted.map(s => {
       let c = B.color(s);
       if (state.region !== "경기도" && anyHL && !isHL(s)) c = mix(c.startsWith("#") ? c : rgb2hex(c), css("--card"), 0.65);
       return c;
     });
     // 축 범위: 증감률은 0을 가운데 두고 양쪽 여유, 나머지는 왼쪽 끝에서 채움
-    const span = B.max - B.min;
-    const xMin = B.diverging ? B.min * (small ? 1.75 : 1.3) : B.min;
-    const xMax = B.diverging ? B.max * (small ? 1.45 : 1.3) : B.max + (B.ref ? 0 : span * 0.02);
+    const span = (hi - lo) || 1;
+    // 값 라벨이 막대 밖에 들어갈 자리를 픽셀 기준으로 확보 (값 범위가 넓어도 이름과 겹치지 않게)
+    const labelPx = small ? 52 : 58;
+    const nameW = Math.max(...sorted.map(s => s.name.length), 2) * (small ? 11.5 : 12.5) + 16;
+    const plotW = Math.max(120, ($("#w-rank").clientWidth || 420) - nameW - 12);
+    const extra = sides => labelPx * span / Math.max(60, plotW - sides * labelPx);
+    const sides = (lo < 0 ? 1 : 0) + (hi > 0 ? 1 : 0);
+    const xMin = B.diverging ? (lo < 0 ? lo - extra(sides) : 0) : lo;
+    const xMax = B.diverging ? (hi > 0 ? hi + extra(sides) : 0) : hi + (B.ref ? 0 : span * 0.02);
     // 기준선 (유지율 100% = 감소 없음)
     const refLine = { id: "refLine", afterDatasetsDraw(ch) {
       if (!B.ref) return;
@@ -391,7 +407,7 @@
       data: { labels: sorted.map(s => s.name), datasets: [{ data: vals, backgroundColor: colors, borderRadius: 4, borderSkipped: false, barPercentage: 0.8, categoryPercentage: 0.9 }] },
       options: {
         indexAxis: "y",
-        layout: { padding: { left: 4, right: small ? 44 : 56, top: B.ref ? 16 : 0 } },
+        layout: { padding: { left: 4, right: B.diverging ? 8 : (small ? 48 : 58), top: B.ref ? 16 : 0 } },
         onClick: (e, els) => {
           if (!els.length) return;
           const it = sorted[els[0].index];
@@ -407,7 +423,7 @@
             color: ctx => isHL(sorted[ctx.dataIndex]) ? css("--ink") : css("--ink-2"),
             backgroundColor: B.ref ? css("--card") : null, borderRadius: 3, padding: { top: 1, bottom: 1, left: 3, right: 3 },
             font: ctx => ({ size: small ? 10.5 : 11.5, weight: isHL(sorted[ctx.dataIndex]) ? "800" : "600" }),
-            formatter: (v, ctx) => info.short(sorted[ctx.dataIndex])
+            formatter: (v, ctx) => info.short(sorted[ctx.dataIndex]) + (clipped.has(ctx.dataIndex) ? " ▸" : "")
           },
           tooltip: { callbacks: { title: i => sorted[i[0].dataIndex].full || i[0].label,
                                   label: c => ` ${info.text(sorted[c.dataIndex])} · ${L}년 ${fmt(sorted[c.dataIndex].t)}명` } }
@@ -417,7 +433,7 @@
                ticks: { autoSkip: false, color: c => sorted[c.index] && isHL(sorted[c.index]) ? css("--ink") : css("--ink-2"),
                         font: c => ({ size: small ? 11.5 : 12.5, weight: sorted[c.index] && isHL(sorted[c.index]) ? "800" : "500" }) } },
           x: { grid: { color: css("--grid") }, border: { display: false }, min: xMin, max: xMax,
-               ticks: { maxTicksLimit: 6, callback: v => B.tick(v) } }
+               ticks: { maxTicksLimit: 6, includeBounds: false, callback: v => B.tick(v) } }
         }
       }
     });
