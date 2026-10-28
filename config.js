@@ -4,8 +4,8 @@ window.APP_CONFIG = {
   SHEET_ID: "1jSNoE_ZDHx7MpSsSCwtGXOjPXgCFwJ-KdCkCCQQOoiU",
   // Apps Script가 원자료를 쓰는 시트 이름
   SHEET_NAME: "DB",
-  // 시트를 못 읽을 때 쓰는 예비 자료 (저장소의 data/db.csv)
-  FALLBACK_CSV: "data/db.csv",
+  // 사이트가 읽는 자료 파일. 스프레드시트에서 GitHub Actions로 만들어짐 (README 참고)
+  DATA_JSON: "data/db.json",
   // 사이트 제목
   TITLE: "경기도 고등학교 학년별 학생수 추이",
   // 출처 표기

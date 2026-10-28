@@ -285,3 +285,6 @@ input[type=search] { width: min(300px, 100%); }
 .map-note.flash { animation: noteIn .35s ease-out; }
 @keyframes noteIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .map-note.flash { animation: none; } }
+
+.preview { max-width: 1240px; margin: 12px auto 0; padding: 10px 16px; border-radius: 10px; font-size: .9em;
+  background: color-mix(in srgb, var(--s4) 20%, var(--card)); border: 1px solid color-mix(in srgb, var(--s4) 60%, transparent); }

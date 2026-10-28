@@ -8,23 +8,32 @@
 index.html, style.css, app.js   웹사이트 (GitHub Pages)
 config.js                       스프레드시트 ID·시트 이름 설정
 data/gyeonggi-map.json          경기도 31개 시·군 경계 (통계청 2018 경계, 구 단위 병합)
-data/db.csv                     예비 자료 (시트를 못 읽을 때 사용)
+data/db.json                    사이트가 읽는 자료 (스프레드시트에서 생성)
+vendor/                         그래프 라이브러리 (Chart.js 4.4.1, datalabels 2.2.0)
+scripts/build_data.py           스프레드시트 DB 시트 → data/db.json 변환
+.github/workflows/update-data.yml  위 변환을 실행하는 GitHub Actions
 apps-script/                    스프레드시트에 붙이는 수집 스크립트
 ```
 
-데이터 흐름: **학교알리미 API → (Apps Script) → 스프레드시트 `DB` 시트 → 웹사이트**
-웹사이트는 접속할 때마다 시트를 읽으므로, 시트만 새로 수집하면 사이트도 바로 바뀝니다.
+데이터 흐름: **학교알리미 API → (Apps Script) → 스프레드시트 `DB` 시트 → (GitHub Actions) → `data/db.json` → 웹사이트**
+
+- 공시는 1년에 한 번이므로 사이트는 저장소의 `data/db.json`만 읽습니다. 구글 시트에 매번 접속하지 않습니다.
+- 시트에서 수집·보정을 마치면 저장소 **Actions → 자료 갱신 → Run workflow**를 누릅니다. 1~2분 뒤 사이트에 반영됩니다.
+- 매월 2일 새벽에도 자동으로 한 번 확인하며, 바뀐 내용이 없으면 아무것도 하지 않습니다.
+- 게시 전 미리보기: 사이트 주소 끝에 `?live=1`을 붙이면 시트를 직접 읽어 보여 줍니다.
 
 ## 처음 설정
 
 1. 스프레드시트에서 **확장 프로그램 → Apps Script**를 열고 `apps-script/Code.gs`, `appsscript.json` 내용을 붙여넣습니다.
 2. **⚙️ 프로젝트 설정 → 스크립트 속성**에 `SCHOOLINFO_API_KEY` = 발급받은 키를 추가합니다.
 3. 스프레드시트를 새로고침하면 생기는 **학생수 데이터 → API에서 새로 수집**을 실행합니다. (처음 한 번 권한 승인)
-4. 스프레드시트 **공유 → 링크가 있는 모든 사용자: 뷰어**로 설정합니다. (웹사이트가 `DB` 시트를 읽기 위해 필요)
+4. 스프레드시트 **공유 → 링크가 있는 모든 사용자: 뷰어**로 설정합니다. (GitHub Actions가 `DB` 시트를 읽기 위해 필요)
+5. 저장소 **Actions → 자료 갱신 → Run workflow**로 `data/db.json`을 만듭니다.
 
 ## 해마다 갱신
 
-- `Code.gs`의 `LATEST_YEAR`를 새 공시연도로 바꾸고 **API에서 새로 수집**을 실행합니다.
+- `Code.gs`의 `LATEST_YEAR`를 새 공시연도로 바꾸고 **API에서 새로 수집**을 실행한 뒤, GitHub에서 **자료 갱신**을 실행합니다.
+- API에 빠진 학교는 스프레드시트 `보정` 시트에 입력합니다. (API에 같은 학교·연도가 생기면 API 값이 우선)
 - 행정구역이 바뀌면 `REGION_MAP`에 새 시군구 코드를 추가합니다. (예: 화성시는 2026년부터 41591·41593·41595·41597)
 - 웹사이트는 시트의 연도를 자동으로 읽으므로 고칠 필요가 없습니다.
 

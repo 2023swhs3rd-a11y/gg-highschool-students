@@ -79,13 +79,19 @@
     return res.text();
   }
 
+  // 기본: 저장소의 data/db.json (공시는 1년에 한 번이라 매번 시트를 읽지 않음)
+  // 주소 끝에 ?live=1 을 붙이면 스프레드시트를 직접 읽어 게시 전 상태를 미리 볼 수 있음
+  const LIVE = new URLSearchParams(location.search).has("live");
   async function loadData() {
-    const sheetUrl = `https://docs.google.com/spreadsheets/d/${CFG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CFG.SHEET_NAME)}`;
-    try {
-      const rows = toRows(parseCSV(await fetchText(sheetUrl)));
-      if (rows.length) return { rows, from: "sheet" };
-    } catch (e) { console.warn("시트 읽기 실패, 예비 자료 사용:", e); }
-    return { rows: toRows(parseCSV(await fetchText(CFG.FALLBACK_CSV))), from: "fallback" };
+    if (LIVE) {
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${CFG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CFG.SHEET_NAME)}`;
+      return { rows: toRows(parseCSV(await fetchText(sheetUrl))), from: "sheet" };
+    }
+    const res = await fetch(CFG.DATA_JSON, { cache: "no-cache" });   // 바뀌었을 때만 새로 받음(ETag 확인)
+    if (!res.ok) throw new Error("자료 파일을 읽지 못했습니다 (HTTP " + res.status + ")");
+    const d = await res.json();
+    STAMP = d.meta?.collected || "";
+    return { rows: toRows([d.columns].concat(d.rows.map(r => r.map(v => String(v))))), from: "json" };
   }
 
   /* ───────── 집계 ───────── */
@@ -745,7 +751,13 @@
       const r = prev.t ? cur.t / prev.t - 1 : null;
       $("#lede").innerHTML = `${L}년 경기도 고등학교는 <b>${fmt(cur.n)}개교, 학생 ${fmt(cur.t)}명</b>으로 ${L - 1}년보다 <b class="${cls(r)}">${pct(r).replace(/^[+−]/, "")} ${r < 0 ? "줄었습니다" : "늘었습니다"}</b>. 지역·학교유형별로 학년마다 학생수가 어떻게 바뀌는지 살펴보세요.`;
       $("#meta").textContent = `${SHOWN[SHOWN.length - 1]}~${L}년 공시 · 31개 시·군` + (STAMP ? ` · 자료 수집 ${STAMP}` : "");
-      $("#source").textContent = `자료: ${CFG.SOURCE}` + (STAMP ? ` · 수집 ${STAMP}` : "") + (from === "fallback" ? " · 스프레드시트에 연결하지 못해 저장된 예비 자료를 표시 중" : "");
+      $("#source").textContent = `자료: ${CFG.SOURCE}` + (STAMP ? ` · 수집 ${STAMP}` : "") +
+        (from === "sheet" ? " · 미리보기: 스프레드시트를 직접 읽는 중 (게시된 자료가 아님)" : "");
+      if (from === "sheet") {
+        const pv = document.createElement("p"); pv.className = "preview";
+        pv.innerHTML = "<b>미리보기</b> — 스프레드시트의 현재 내용을 직접 읽고 있습니다. 게시된 사이트에는 GitHub의 <b>자료 갱신</b>을 실행해야 반영됩니다.";
+        $("#main").before(pv);
+      }
 
       chartDefaults(); buildMap(); bind(); renderNotes(); renderAll();
     } catch (e) {
