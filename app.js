@@ -174,7 +174,8 @@
     D.color = css("--ink-2");
     D.borderColor = css("--grid");
     D.maintainAspectRatio = false;
-    D.animation = matchMedia("(prefers-reduced-motion: reduce)").matches ? false : { duration: 350 };
+    // 애니메이션은 requestAnimationFrame에 의존해 백그라운드 탭·임베드 화면에서는 첫 프레임이 그려지지 않아 빈 그래프가 되므로 끔
+    D.animation = false;
     Object.assign(D.plugins.legend.labels, { boxWidth: 12, boxHeight: 12, useBorderRadius: true, borderRadius: 3, padding: 14, color: css("--ink"), font: { size: 13, weight: "600" } });
     Object.assign(D.plugins.tooltip, { backgroundColor: css("--ink"), titleColor: css("--card"), bodyColor: css("--card"), footerColor: css("--card"),
                                        padding: 10, cornerRadius: 8, titleFont: { weight: "700", size: 13 }, bodyFont: { size: 12.5 } });
@@ -729,6 +730,8 @@
       lastW = innerWidth; clearTimeout(rt); rt = setTimeout(renderAll, 200);
     });
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { chartDefaults(); renderAll(); });
+    // 숨겨진 탭에서 크기가 0으로 잡혔다가 다시 보일 때 그래프를 다시 맞춤
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) Object.values(charts).forEach(c => { c.resize(); c.update("none"); }); });
   }
 
   /* ───────── 시작 ───────── */
