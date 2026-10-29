@@ -55,7 +55,7 @@ html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-t
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body {
   margin: 0; background: var(--page); color: var(--ink);
-  font: var(--fs-body)/1.65 "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: var(--fs-body)/1.65 var(--bon-font, system-ui, -apple-system, "Segoe UI", sans-serif); /* 진로진학부 공통 Pretendard(/assets/site.css) */
   word-break: keep-all; overflow-wrap: anywhere;
 }
 .wrap { max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px); }
@@ -256,8 +256,11 @@ input[type=search] { width: min(300px, 100%); }
 .notes { margin: 12px 0 0; padding-left: 1.1em; display: grid; gap: 10px; color: var(--ink-2); font-size: 0.92em; }
 .notes b { color: var(--ink); }
 
-.foot { color: var(--muted); font-size: 0.84em; padding: 20px 0 48px; border-top: 1px solid var(--line); }
-.foot p { margin: 4px 0; max-width: 90ch; }
+/* 진로진학부 공통 경로 줄·바닥글(/assets/site.css): 색은 이 사이트 값, 안쪽 폭·여백은 .wrap과 같게 */
+.bon-bar, .bon-footer { --bon-card: var(--card); --bon-line: var(--line); --bon-muted: var(--muted); --bon-text: var(--ink); }
+.bon-bar { --bon-max: 1240px; }
+.bon-bar-in { padding-inline: clamp(16px, 3vw, 32px); }
+.foot .bon-footer { margin: 32px 0 0; padding-bottom: 48px; }
 
 .tip {
   position: fixed; z-index: 30; pointer-events: none;
@@ -270,6 +273,7 @@ input[type=search] { width: min(300px, 100%); }
 /* 아주 좁은 화면: 겹치는 여백을 줄여 표가 화면 안에 들어오게 */
 @media (max-width: 480px) {
   .wrap { padding: 0 12px; }
+  .bon-bar-in { padding-inline: 12px; }
   .card { padding: 14px 12px; }
   .detail { padding: 10px 8px; border-width: 1.5px; }
   .tbl.compact { font-size: 0.8em; }
